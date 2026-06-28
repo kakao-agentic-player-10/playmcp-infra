@@ -20,6 +20,31 @@
 
 서비스 repo는 앱 코드와 Dockerfile만 책임지고, 이 repo는 포트, 배포, 로그, Nginx reverse proxy를 책임진다.
 
+Compose는 각 서비스 repo의 Dockerfile을 build해서 아래 이미지 이름으로 태깅한다.
+
+- `playmcp-welfare-agent:local`
+- `playmcp-invitation-agent:local`
+
+## Ownership
+
+서비스 담당자가 책임지는 것:
+
+- 서비스 앱 코드
+- 서비스별 `Dockerfile`
+- 서비스별 라이브러리/패키지 관리
+- 서비스별 환경변수 목록과 `.env.example`
+- `/health`, `/mcp` endpoint 구현
+
+인프라 담당자가 책임지는 것:
+
+- 두 서비스 repo를 같은 상위 폴더에 두는 배포 구조
+- Docker Compose 실행과 컨테이너 재시작/로그 확인
+- 로컬 포트 매핑
+- Nginx reverse proxy 라우팅
+- VM 배포 시 도메인/HTTPS 연결
+
+실제 API key, 토큰 같은 비밀값은 Dockerfile에 넣지 않고 런타임 환경변수로 주입한다.
+
 ## Service Contract
 
 각 서비스 repo는 아래 조건을 맞춰야 한다.
@@ -45,6 +70,24 @@ cp env/.env.example .env
 
 ```bash
 ./scripts/compose.sh up -d --build
+```
+
+이 명령은 `../welfare-agent/Dockerfile`, `../invitation-agent/Dockerfile`을 각각 build한 뒤 컨테이너를 띄운다.
+
+이미지만 먼저 만들어보고 싶으면:
+
+```bash
+./scripts/compose.sh build
+docker images | grep playmcp
+```
+
+서비스 repo 경로나 이미지 이름을 바꾸고 싶으면 `.env`에서 조정한다.
+
+```env
+WELFARE_AGENT_IMAGE=playmcp-welfare-agent:local
+INVITATION_AGENT_IMAGE=playmcp-invitation-agent:local
+WELFARE_AGENT_CONTEXT=../welfare-agent
+INVITATION_AGENT_CONTEXT=../invitation-agent
 ```
 
 ## Health Check

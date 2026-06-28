@@ -2,6 +2,7 @@ name: playmcp-infra
 
 services:
   welfare-agent:
+    image: ${WELFARE_AGENT_IMAGE:-playmcp-welfare-agent:local}
     build:
       context: ${WELFARE_AGENT_CONTEXT:-../welfare-agent}
       dockerfile: ${WELFARE_AGENT_DOCKERFILE:-Dockerfile}
@@ -16,6 +17,7 @@ services:
       - playmcp
 
   invitation-agent:
+    image: ${INVITATION_AGENT_IMAGE:-playmcp-invitation-agent:local}
     build:
       context: ${INVITATION_AGENT_CONTEXT:-../invitation-agent}
       dockerfile: ${INVITATION_AGENT_DOCKERFILE:-Dockerfile}

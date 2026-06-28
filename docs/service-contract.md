@@ -2,6 +2,8 @@
 
 각 서비스 repo는 아래 규칙을 맞춰야 한다.
 
+이 문서는 인프라 repo가 서비스 repo에 기대하는 계약만 정의한다. 서비스 앱 코드와 Dockerfile은 각 서비스 담당자가 작성하고 관리한다.
+
 ## 공통 규칙
 
 - Dockerfile은 각 서비스 repo 루트에 둔다.
@@ -13,6 +15,24 @@
 - 프로세스는 `PORT=8000` 환경변수를 읽을 수 있어야 한다.
 - 로그는 stdout/stderr로 출력한다.
 - API key, 토큰, 주민번호, 전화번호 등 민감정보를 로그에 남기지 않는다.
+- API key, 토큰 같은 비밀값은 Dockerfile에 하드코딩하지 않는다.
+
+## 역할 분담
+
+서비스 담당자가 준비한다.
+
+- 서비스별 `Dockerfile`
+- 서비스별 `.env.example`
+- 앱 실행 명령
+- `/health`, `/mcp` 구현
+- 필요한 외부 API/DB 환경변수 목록
+
+인프라 담당자가 준비한다.
+
+- `docker-compose.yml`에서 서비스 repo build context 연결
+- `localhost:8001`, `localhost:8002` 포트 매핑
+- Nginx에서 도메인별 `/mcp`, `/health` reverse proxy 연결
+- VM 배포/재시작/로그 확인 스크립트
 
 ## 필수 파일
 
@@ -101,6 +121,20 @@ Production:
 ```env
 WELFARE_AGENT_CONTEXT=../welfare-agent
 INVITATION_AGENT_CONTEXT=../invitation-agent
+```
+
+이미지 이름은 기본적으로 아래처럼 태깅된다.
+
+```env
+WELFARE_AGENT_IMAGE=playmcp-welfare-agent:local
+INVITATION_AGENT_IMAGE=playmcp-invitation-agent:local
+```
+
+즉 서비스 담당자는 자기 repo의 Dockerfile만 잘 맞추면 되고, 인프라 repo에서는 아래 명령으로 이미지를 만들고 실행한다.
+
+```bash
+./scripts/compose.sh build
+./scripts/compose.sh up -d
 ```
 
 ## 로컬 검증 체크리스트
