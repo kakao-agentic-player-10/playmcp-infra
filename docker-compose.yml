@@ -1,0 +1,34 @@
+name: playmcp-infra
+
+services:
+  welfare-agent:
+    build:
+      context: ${WELFARE_AGENT_CONTEXT:-../welfare-agent}
+      dockerfile: ${WELFARE_AGENT_DOCKERFILE:-Dockerfile}
+    container_name: welfare-agent
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${WELFARE_AGENT_PORT:-8001}:8000"
+    environment:
+      PORT: "8000"
+    networks:
+      - playmcp
+
+  invitation-agent:
+    build:
+      context: ${INVITATION_AGENT_CONTEXT:-../invitation-agent}
+      dockerfile: ${INVITATION_AGENT_DOCKERFILE:-Dockerfile}
+    container_name: invitation-agent
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${INVITATION_AGENT_PORT:-8002}:8000"
+    environment:
+      PORT: "8000"
+    networks:
+      - playmcp
+
+networks:
+  playmcp:
+    name: playmcp-net
