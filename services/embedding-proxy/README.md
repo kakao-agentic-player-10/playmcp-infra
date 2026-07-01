@@ -68,6 +68,23 @@ docker build -t embedding-proxy .
 docker run --rm -p 8080:8080 --env-file .env embedding-proxy
 ```
 
+## Render
+
+Repo root의 `render.yaml`로 Docker Web Service를 생성할 수 있습니다.
+
+Render Dashboard에서 Blueprint 또는 Web Service 생성 시 `playmcp-infra` repo를 연결하고,
+`OPENAI_API_KEY` 값만 Render 환경변수 화면에 직접 입력합니다. 이 값은 GitHub에 커밋하지 않습니다.
+
+권장 설정:
+
+- Name: `playmcp-embedding-proxy`
+- Runtime: Docker
+- Root Directory: `services/embedding-proxy`
+- Health Check Path: `/health`
+- Required secret: `OPENAI_API_KEY`
+
+배포 후 Render가 발급한 HTTPS URL 뒤에 `/v1/embeddings`를 붙여 `welfare-agent`의 proxy URL로 사용합니다.
+
 After deployment, set `welfare-agent` to use:
 
 ```text

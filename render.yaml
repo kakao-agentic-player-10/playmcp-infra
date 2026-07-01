@@ -1,0 +1,23 @@
+services:
+  - type: web
+    runtime: docker
+    name: playmcp-embedding-proxy
+    plan: free
+    region: singapore
+    rootDir: services/embedding-proxy
+    dockerfilePath: Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_EMBEDDING_MODEL
+        value: text-embedding-3-small
+      - key: OPENAI_EMBEDDING_DIMENSIONS
+        value: 1536
+      - key: EMBEDDING_PROXY_MAX_INPUTS
+        value: 16
+      - key: EMBEDDING_PROXY_MAX_INPUT_CHARS
+        value: 6000
+      - key: PORT
+        value: 8080
