@@ -31,6 +31,20 @@ class KakaoLocalSearchRequest(BaseModel):
     size: int = Field(default=5, ge=1, le=5)
 
 
+class KakaoAddressSearchRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=120)
+    size: int = Field(default=1, ge=1, le=5)
+
+
+class KakaoCategorySearchRequest(BaseModel):
+    category_group_code: str = Field(min_length=1, max_length=10)
+    x: float
+    y: float
+    radius: int = Field(default=2000, ge=1, le=20000)
+    sort: str = Field(default="distance", pattern="^(accuracy|distance)$")
+    size: int = Field(default=1, ge=1, le=5)
+
+
 @app.get("/health")
 def health() -> dict[str, bool]:
     return {"ok": True}
@@ -122,7 +136,87 @@ async def search_kakao_local(
         }
         for item in kakao_payload.get("documents", [])
     ]
-    return {"ok": True, "places": places, "meta": kakao_payload.get("meta", {})}
+    return {
+        "ok": True,
+        "places": places,
+        "documents": kakao_payload.get("documents", []),
+        "meta": kakao_payload.get("meta", {}),
+    }
+
+
+@app.post("/v1/kakao/local/keyword")
+async def search_kakao_keyword(
+    payload: KakaoLocalSearchRequest,
+    authorization: Annotated[str | None, Header()] = None,
+    x_kakao_proxy_token: Annotated[str | None, Header()] = None,
+) -> dict[str, Any]:
+    return await search_kakao_local(payload, authorization, x_kakao_proxy_token)
+
+
+@app.post("/v1/kakao/local/address")
+async def search_kakao_address(
+    payload: KakaoAddressSearchRequest,
+    authorization: Annotated[str | None, Header()] = None,
+    x_kakao_proxy_token: Annotated[str | None, Header()] = None,
+) -> dict[str, Any]:
+    require_kakao_proxy_auth(authorization, x_kakao_proxy_token)
+    kakao_payload = await kakao_get(
+        "/v2/local/search/address.json",
+        {"query": " ".join(payload.query.split()), "size": payload.size},
+    )
+    return {
+        "ok": True,
+        "documents": kakao_payload.get("documents", []),
+        "meta": kakao_payload.get("meta", {}),
+    }
+
+
+@app.post("/v1/kakao/local/category")
+async def search_kakao_category(
+    payload: KakaoCategorySearchRequest,
+    authorization: Annotated[str | None, Header()] = None,
+    x_kakao_proxy_token: Annotated[str | None, Header()] = None,
+) -> dict[str, Any]:
+    require_kakao_proxy_auth(authorization, x_kakao_proxy_token)
+    kakao_payload = await kakao_get(
+        "/v2/local/search/category.json",
+        {
+            "category_group_code": payload.category_group_code,
+            "x": payload.x,
+            "y": payload.y,
+            "radius": payload.radius,
+            "sort": payload.sort,
+            "size": payload.size,
+        },
+    )
+    return {
+        "ok": True,
+        "documents": kakao_payload.get("documents", []),
+        "meta": kakao_payload.get("meta", {}),
+    }
+
+
+async def kakao_get(path: str, params: dict[str, Any]) -> dict[str, Any]:
+    api_key = os.getenv("KAKAO_REST_API_KEY", "").strip()
+    if not api_key:
+        raise HTTPException(status_code=500, detail="KAKAO_REST_API_KEY is not configured")
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.get(
+                f"https://dapi.kakao.com{path}",
+                params=params,
+                headers={"Authorization": f"KakaoAK {api_key}"},
+            )
+            response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Kakao Local API returned {exc.response.status_code}",
+        ) from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Kakao Local API request failed: {exc}") from exc
+    return response.json()
 
 
 def require_proxy_auth(authorization: str | None, header_token: str | None) -> None:

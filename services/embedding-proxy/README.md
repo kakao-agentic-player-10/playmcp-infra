@@ -41,9 +41,12 @@ Response:
 
 ```http
 POST /v1/kakao/local/search
+POST /v1/kakao/local/keyword
+POST /v1/kakao/local/address
+POST /v1/kakao/local/category
 ```
 
-Request:
+Keyword request:
 
 ```json
 {
@@ -52,7 +55,29 @@ Request:
 }
 ```
 
-Response:
+Address request:
+
+```json
+{
+  "query": "서울시 영등포구 은행로 30",
+  "size": 1
+}
+```
+
+Category request, e.g. nearest subway:
+
+```json
+{
+  "category_group_code": "SW8",
+  "x": 126.924,
+  "y": 37.521,
+  "radius": 2000,
+  "sort": "distance",
+  "size": 1
+}
+```
+
+Keyword response includes `places` for welfare-agent and raw Kakao `documents` for invitation-agent:
 
 ```json
 {
@@ -67,7 +92,9 @@ Response:
       "x": "126.9013",
       "y": "37.5663"
     }
-  ]
+  ],
+  "documents": [],
+  "meta": {}
 }
 ```
 
