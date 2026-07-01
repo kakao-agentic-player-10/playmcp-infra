@@ -1,10 +1,13 @@
-# Embedding Proxy
+# PlayMCP API Proxy
 
-OpenAI API key를 PlayMCP in KC에 직접 넣을 수 없을 때 사용하는 임베딩 프록시입니다.
+OpenAI/Kakao API key를 PlayMCP in KC에 직접 넣을 수 없을 때 사용하는 API 프록시입니다.
 
 `welfare-agent`는 이 프록시에 텍스트를 보내 임베딩 벡터만 받고, OpenAI key는 이 서비스의 런타임 환경변수로만 보관합니다.
+방문기관 검색도 이 프록시를 통해 Kakao Local API를 호출합니다.
 
 ## API
+
+### Embeddings
 
 ```http
 POST /v1/embeddings
@@ -34,14 +37,50 @@ Response:
 }
 ```
 
+### Kakao Local Search
+
+```http
+POST /v1/kakao/local/search
+```
+
+Request:
+
+```json
+{
+  "query": "마포구 주민센터",
+  "size": 5
+}
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "places": [
+    {
+      "name": "마포구청",
+      "category": "공공,사회기관 > 구청",
+      "address": "서울 마포구 월드컵로 212",
+      "phone": "02-3153-8114",
+      "url": "https://place.map.kakao.com/...",
+      "x": "126.9013",
+      "y": "37.5663"
+    }
+  ]
+}
+```
+
 ## Environment
 
 | Key | Required | Description |
 |---|---:|---|
 | `OPENAI_API_KEY` | yes | OpenAI API key. Never commit this value. |
+| `KAKAO_REST_API_KEY` | yes for Kakao search | Kakao REST API key. Never commit this value. |
 | `OPENAI_EMBEDDING_MODEL` | no | Default `text-embedding-3-small`. |
 | `OPENAI_EMBEDDING_DIMENSIONS` | no | Default `1536`. |
 | `EMBEDDING_PROXY_TOKEN` | no | If set, require `Authorization: Bearer ...` or `X-Embedding-Proxy-Token`. |
+| `KAKAO_PROXY_TOKEN` | no | If set, require `Authorization: Bearer ...` or `X-Kakao-Proxy-Token`. |
 | `EMBEDDING_PROXY_MAX_INPUTS` | no | Max batch size. Default `16`. |
 | `EMBEDDING_PROXY_MAX_INPUT_CHARS` | no | Max chars per input. Default `6000`. |
 | `PORT` | no | Default `8080`. |
@@ -50,7 +89,7 @@ Response:
 
 ```bash
 cp .env.example .env
-# fill OPENAI_API_KEY in .env
+# fill OPENAI_API_KEY and KAKAO_REST_API_KEY in .env
 python -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
@@ -73,7 +112,7 @@ docker run --rm -p 8080:8080 --env-file .env embedding-proxy
 Repo root의 `render.yaml`로 Docker Web Service를 생성할 수 있습니다.
 
 Render Dashboard에서 Blueprint 또는 Web Service 생성 시 `playmcp-infra` repo를 연결하고,
-`OPENAI_API_KEY` 값만 Render 환경변수 화면에 직접 입력합니다. 이 값은 GitHub에 커밋하지 않습니다.
+`OPENAI_API_KEY`, `KAKAO_REST_API_KEY` 값만 Render 환경변수 화면에 직접 입력합니다. 이 값은 GitHub에 커밋하지 않습니다.
 
 권장 설정:
 
@@ -81,7 +120,7 @@ Render Dashboard에서 Blueprint 또는 Web Service 생성 시 `playmcp-infra` r
 - Runtime: Docker
 - Root Directory: `services/embedding-proxy`
 - Health Check Path: `/health`
-- Required secret: `OPENAI_API_KEY`
+- Required secrets: `OPENAI_API_KEY`, `KAKAO_REST_API_KEY`
 
 배포 후 Render가 발급한 HTTPS URL 뒤에 `/v1/embeddings`를 붙여 `welfare-agent`의 proxy URL로 사용합니다.
 
@@ -89,6 +128,7 @@ After deployment, set `welfare-agent` to use:
 
 ```text
 OPENAI_EMBEDDING_PROXY_URL=https://<proxy-host>/v1/embeddings
+KAKAO_LOCAL_PROXY_URL=https://<proxy-host>/v1/kakao/local/search
 ```
 
-If the deploy target cannot inject runtime env vars, put only this non-secret proxy URL into the `welfare-agent` image build/default config. Do not put `OPENAI_API_KEY` in `welfare-agent`.
+If the deploy target cannot inject runtime env vars, put only these non-secret proxy URLs into the `welfare-agent` image build/default config. Do not put `OPENAI_API_KEY` or `KAKAO_REST_API_KEY` in `welfare-agent`.

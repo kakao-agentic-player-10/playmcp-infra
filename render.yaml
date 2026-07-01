@@ -11,6 +11,8 @@ services:
     envVars:
       - key: OPENAI_API_KEY
         sync: false
+      - key: KAKAO_REST_API_KEY
+        sync: false
       - key: OPENAI_EMBEDDING_MODEL
         value: text-embedding-3-small
       - key: OPENAI_EMBEDDING_DIMENSIONS
