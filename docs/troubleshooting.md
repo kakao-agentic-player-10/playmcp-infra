@@ -83,11 +83,18 @@ KAKAO_REST_API_KEY가 필요합니다.
 캘린더 access token 이 없습니다. PlayMCP가 전달한 토큰(Authorization 헤더)이 필요합니다.
 ```
 
+또는:
+
+```text
+캘린더 access token 이 없습니다. PlayMCP가 Authorization 헤더나 token 헤더로 토큰을 전달하지 않았고, 서버에 저장된 OAuth 토큰도 없습니다.
+```
+
 원인:
 
 - Kakao Calendar는 사용자별 OAuth access token이 필요하다.
 - Kakao REST API key만으로는 특정 사용자의 캘린더를 조회하거나 생성할 수 없다.
 - PlayMCP 인증이 꺼져 있거나, OAuth가 끝나지 않았거나, 토큰이 invitation-agent로 전달되지 않은 경우 발생한다.
+- 현재 PlayMCP 환경에서는 OAuth 인증이 완료되어도 calendar tool 호출에 access token 헤더가 붙지 않을 수 있다.
 
 처리:
 
@@ -95,11 +102,50 @@ KAKAO_REST_API_KEY가 필요합니다.
 - Kakao Developers에 PlayMCP가 발급한 Redirect URI를 등록한다.
 - Kakao Developers 동의항목에서 `talk_calendar`를 켠다.
 - PlayMCP에서 `인증하기`를 완료한 뒤 calendar tool을 다시 테스트한다.
+- `invitation-agent`의 `/oauth/kakao/authorize`, `/oauth/kakao/token` 중계 endpoint를 PlayMCP OAuth endpoint로 설정한다.
+- token 교환이 성공하면 `invitation-agent`가 access token을 `/tmp/invitation_agent_kakao_token.json`에 저장하고 calendar tool이 이를 폴백으로 사용한다.
+- 재배포/재시작 후 `/tmp` 저장소가 비면 PlayMCP에서 캘링크 MCP 인증을 다시 진행한다.
 
-우회안:
+확인:
 
-- PlayMCP와 Kakao OAuth token 교환 방식이 맞지 않으면 `invitation-agent`에 OAuth adapter를 둔다.
+```text
+캘링크 캘린더 인증 상태 확인해줘
+```
+
+기대 응답:
+
+```json
+{"authenticated": true, "token_source": "server_store"}
+```
+
+주의:
+
 - 고정 access token을 Key/Token 인증으로 넣는 방식은 사용자별 캘린더 구조와 맞지 않으므로 운영 방식으로 쓰지 않는다.
+- token 원문은 tool 응답이나 로그에 출력하지 않는다.
+
+## Kakao Local timeout
+
+증상:
+
+```text
+Upstream request timed out, please retry
+```
+
+원인:
+
+- PlayMCP → invitation-agent → Render proxy → Kakao Local API 흐름 중 외부 호출이 늦게 응답했다.
+- Render 무료/저사양 인스턴스 cold start, 네트워크 지연, Kakao Local 일시 지연에서 발생할 수 있다.
+
+처리:
+
+- `invitation-agent`에서 Kakao Local proxy 호출에 timeout/5xx 재시도를 둔다.
+- 같은 주소/장소/지하철 검색 결과는 프로세스 메모리에 캐시한다.
+- `geocode_address`가 실패해도 장소명/주소만으로 `create_calendar_event`를 계속 호출하도록 tool 설명을 둔다.
+
+확인:
+
+- 같은 URL/주소를 다시 테스트했을 때 `geocode_address`가 안정적으로 반환되는지 본다.
+- 반복 실패 시 Render proxy `/health`와 Render 로그를 확인한다.
 
 ## Kakao KOE205
 
@@ -145,7 +191,7 @@ KAKAO_REST_API_KEY가 필요합니다.
 다음 선택지:
 
 - 공식 Discord에 PlayMCP OAuth token exchange 호환성을 문의한다.
-- 답이 없거나 일정상 급하면 `invitation-agent` 내부에 OAuth adapter를 추가한다.
+- 답이 없거나 일정상 급하면 `invitation-agent` 내부 OAuth 중계/임시 토큰 저장 흐름을 사용한다.
 
 ## 공통 확인 순서
 

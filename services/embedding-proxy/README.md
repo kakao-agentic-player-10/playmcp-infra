@@ -158,4 +158,10 @@ OPENAI_EMBEDDING_PROXY_URL=https://<proxy-host>/v1/embeddings
 KAKAO_LOCAL_PROXY_URL=https://<proxy-host>/v1/kakao/local/search
 ```
 
+Set `invitation-agent` to use the Kakao Local base path:
+
+```text
+KAKAO_LOCAL_PROXY_BASE_URL=https://<proxy-host>/v1/kakao/local
+```
+
 If the deploy target cannot inject runtime env vars, put only these non-secret proxy URLs into the `welfare-agent` image build/default config. Do not put `OPENAI_API_KEY` or `KAKAO_REST_API_KEY` in `welfare-agent`.

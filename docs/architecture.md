@@ -12,7 +12,7 @@ flowchart LR
     playmcp --> invitation_kc["PlayMCP in KC<br/>invitation-agent"]
 
     welfare_kc --> welfare_tools["복지알리미 Tools<br/>save_profile<br/>search_benefits<br/>match_benefits<br/>find_visit_offices"]
-    invitation_kc --> invitation_tools["캘링크 Tools<br/>fetch_invitation<br/>geocode_address<br/>nearest_subway<br/>calendar tools"]
+    invitation_kc --> invitation_tools["캘링크 Tools<br/>fetch_invitation<br/>geocode_address<br/>guide_route<br/>calendar tools"]
 
     welfare_tools --> proxy["Render API Proxy<br/>playmcp-embedding-proxy"]
     invitation_tools --> proxy
@@ -21,12 +21,14 @@ flowchart LR
     proxy --> kakao_local["Kakao<br/>Local API"]
 
     invitation_tools --> kakao_oauth["Kakao OAuth<br/>사용자 캘린더 동의"]
+    invitation_tools --> token_store["Ephemeral Token Store<br/>/tmp"]
     invitation_tools --> kakao_calendar["Kakao<br/>Calendar API"]
 
     subgraph secret_area["Secret 보관 영역"]
       proxy
       openai
       kakao_local
+      token_store
     end
 ```
 
@@ -37,7 +39,7 @@ flowchart LR
 | PlayMCP 개발자 콘솔 | MCP 등록, OAuth 설정, AI 채팅 테스트 | OAuth 설정값만 입력 |
 | PlayMCP in KC | 각 MCP 서버 실행, HTTPS endpoint 발급 | 런타임 환경변수 입력 제약 있음 |
 | welfare-agent | 복지 프로필 생성, 복지 검색/매칭, 방문기관 안내 | API key 직접 보관하지 않음 |
-| invitation-agent | 초대장 분석, 주소 좌표 변환, 가까운 역 검색, 캘린더 등록 | Local API key 직접 보관하지 않음. 캘린더는 사용자 OAuth token 필요 |
+| invitation-agent | 초대장 분석, 주소 좌표 변환, 가까운 역 검색, 캘린더 등록 | Local API key 직접 보관하지 않음. 캘린더는 OAuth 중계와 임시 토큰 저장소 사용 |
 | Render API Proxy | OpenAI/Kakao Local 호출을 대신 수행 | Render Environment에 secret 저장 |
 
 ## 복지알리미 흐름
@@ -85,21 +87,23 @@ sequenceDiagram
 
     U->>P: 청첩장 URL
     P->>I: fetch_invitation(url)
-    I-->>P: 일정 추출용 본문
+    I-->>P: 정제된 일정 추출용 본문
     P->>I: geocode_address(address)
     I->>R: POST /v1/kakao/local/address
     R->>K: 주소 검색
     K-->>R: 좌표
     R-->>I: 검색 결과
     I-->>P: 위도/경도
-    P->>I: nearest_subway(lat,lng)
+    P->>I: guide_route(dest_name, lat, lng)
     I->>R: POST /v1/kakao/local/category
     R->>K: 지하철역 검색
     K-->>R: 가까운 역
     R-->>I: 검색 결과
-    I-->>P: 가까운 역
-    P->>KO: 사용자 OAuth 동의
-    KO-->>P: 사용자 access token
+    I-->>P: 가까운 역·도보 경로 링크
+    P->>I: OAuth authorize/token 중계
+    I->>KO: Kakao OAuth authorize/token
+    KO-->>I: 사용자 access token
+    I-->>I: access token 파일 저장
     P->>I: check_calendar_conflict
     I->>KC: 일정 조회
     KC-->>I: 기존 일정
@@ -134,4 +138,5 @@ sequenceDiagram
 - 외부 API key가 필요한 기능은 Render API Proxy를 거치게 한다.
 - MCP 응답은 PlayMCP 응답 크기 제한을 고려해 필요한 필드만 반환한다.
 - Kakao Calendar 등록은 사용자별 캘린더 권한이 필요하므로 고정 key가 아니라 OAuth access token으로 처리한다.
-- Kakao OAuth 직접 연결이 계속 막히면, 캘링크 책임 범위 안에서 `invitation-agent`에 OAuth adapter를 추가한다.
+- PlayMCP가 OAuth token을 tool 요청 헤더로 전달하지 않는 환경을 대비해 `invitation-agent`가 Kakao OAuth 중계 endpoint를 제공하고, 교환된 token을 `/tmp` 기반 임시 저장소에 보관한다.
+- 초대장 본문, Kakao Local 검색 결과는 프로세스 메모리에 짧게 캐시해 반복 테스트와 외부 API 지연을 줄인다.

@@ -42,14 +42,14 @@
 welfare-agent/
 ├─ Dockerfile
 ├─ pyproject.toml
-└─ app/
+└─ src/ 또는 app/
 ```
 
 ```text
 invitation-agent/
 ├─ Dockerfile
 ├─ pyproject.toml
-└─ app/
+└─ src/
 ```
 
 `uv.lock`이나 `requirements.txt`는 서비스별 패키지 관리 방식에 맞춰 추가한다.
@@ -89,6 +89,7 @@ Production:
   - idempotentHint
 - API 원문 그대로 반환 금지
 - 응답은 짧고 정제된 text/json으로 반환
+- PlayMCP tool 응답 크기 제한을 고려해 HTML, 긴 API payload, 불필요한 원문 텍스트를 줄인다.
 
 ## Health Check 규칙
 
@@ -156,3 +157,9 @@ cd ~/study/playmcp-infra
 curl http://localhost:8001/health
 curl http://localhost:8002/health
 ```
+
+## PlayMCP in KC 기준
+
+예선 배포는 자체 도메인/Nginx보다 PlayMCP in KC가 발급한 HTTPS endpoint를 우선 사용한다.
+서비스 repo의 Dockerfile과 `/health`, `/mcp` 계약은 유지하되, secret은 서비스 이미지에 넣지 않고
+Render API Proxy 또는 OAuth 설정 쪽에 둔다.
