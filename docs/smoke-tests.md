@@ -201,3 +201,4 @@ create_calendar_event
 | 캘린더 access token 누락 | PlayMCP OAuth 설정, `get_calendar_auth_status`, 재배포 후 재인증 여부 |
 | `geocode_address` timeout | Render proxy 상태, Kakao Local retry/cache, 장소명/주소만으로 등록 지속 여부 |
 | Kakao KOE205 | Kakao Developers 동의항목, PlayMCP Client ID |
+| `421 Misdirected Request` | FastMCP `allowed_hosts`, PlayMCP endpoint Host 허용 여부 |

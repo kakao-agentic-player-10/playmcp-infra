@@ -147,6 +147,67 @@ Upstream request timed out, please retry
 - 같은 URL/주소를 다시 테스트했을 때 `geocode_address`가 안정적으로 반환되는지 본다.
 - 반복 실패 시 Render proxy `/health`와 Render 로그를 확인한다.
 
+## PlayMCP 421 Misdirected Request
+
+증상:
+
+```text
+MCP 서버와의 연결에 실패했습니다.
+```
+
+또는 endpoint 직접 확인 시:
+
+```bash
+curl -i https://invitation-agent.playmcp-endpoint.kakaocloud.io/health
+```
+
+```text
+HTTP/2 421
+Misdirected Request
+```
+
+원인:
+
+- FastMCP의 Host-Origin 보호가 켜져 있으면 요청의 `Host` 헤더를 허용 목록과 비교한다.
+- PlayMCP in KC는 `*.playmcp-endpoint.kakaocloud.io` 도메인으로 MCP 서버에 접근한다.
+- 앱이 이 Host를 허용하지 않으면 FastMCP의 `HostOriginGuardMiddleware`가 `/health`, `/mcp` 요청을 421로 거절한다.
+- PlayMCP팀 답변 기준으로, 이 경우는 KC 환경 문제가 아니라 애플리케이션 레벨의 allowed host 설정 문제다.
+
+처리:
+
+- MCP 서버 실행 시 FastMCP `allowed_hosts`에 PlayMCP endpoint 도메인을 추가한다.
+
+```python
+mcp.run(
+    transport="http",
+    host="0.0.0.0",
+    port=8000,
+    stateless_http=True,
+    allowed_hosts=["*.playmcp-endpoint.kakaocloud.io"],
+)
+```
+
+- `invitation-agent`에는 `INVITATION_AGENT_ALLOWED_HOSTS` 기본값으로 `["*.playmcp-endpoint.kakaocloud.io"]`를 둔다.
+- 수정 후 PlayMCP in KC에서 재배포하고, PlayMCP 개발자 콘솔에서 `정보 불러오기`를 다시 실행한다.
+
+확인:
+
+```bash
+curl -i https://invitation-agent.playmcp-endpoint.kakaocloud.io/health
+```
+
+기대 결과:
+
+```text
+HTTP/2 200
+{"status":"ok"}
+```
+
+주의:
+
+- endpoint 이름을 `callink-agent`, `invitation-agent` 등으로 바꿔도 wildcard 허용이면 그대로 동작한다.
+- 개발 중 임시로 `allowed_hosts=["*"]`를 쓸 수는 있지만, 공개 제출용으로는 PlayMCP endpoint 도메인만 허용하는 편이 낫다.
+
 ## Kakao KOE205
 
 증상:
